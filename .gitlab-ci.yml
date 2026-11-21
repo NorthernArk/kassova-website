@@ -1,0 +1,55 @@
+# kassova.com, the public Kassova site (kassova/ops#18, epic kassova/overview&17).
+#
+# Source of truth: this GitLab repo, branch main. Publishing: git-mirror-sync fast-forwards
+# main to the public GitHub repo NorthernArk/kassova-website (a bidirectional pair in
+# DroidOpsInc/nebula tools/git-mirror-sync, the wiremark-web pattern), and GitHub Pages
+# serves that repo's main from its root at the custom domain in CNAME, HTTPS enforced.
+# The repository, its Pages settings and the DNS records are Terraform in
+# FocusApiary/infrastructure. No token lives here.
+#
+# The pipeline is launch-sequence's static-site composition: lint on every MR, no build.
+# Its GitLab Pages job only runs on a protected `demo` branch (none exists) and its mirror
+# job only on gh-pages, where GITHUB_MIRROR_EXTERNAL makes it a no-op: the mirror is
+# git-mirror-sync, not this pipeline.
+include:
+  - project: 'DroidOpsInc/launch-sequence'
+    ref: main
+    file: '/pipelines/static-site.yml'
+
+variables:
+  GITHUB_REPO: "NorthernArk/kassova-website"
+  GITHUB_MIRROR_EXTERNAL: "true"
+  SITE_DIR: "."
+
+# The page is public: no internal hostname, cluster address or app surface may reach it
+# (epic &17: "the public site carries no app surface"; no client or person names). This
+# guards the published files on every MR and main push.
+check:public-content:
+  stage: preflight
+  image: ${IMAGE_REGISTRY}/dockerhub-proxy/library/alpine:3.24
+  needs: []
+  script:
+    - test "$(cat CNAME)" = "kassova.com" || { echo "CNAME must be exactly kassova.com" >&2; exit 1; }
+    - |
+      pattern='developerdojo\.org|focuspass\.com|focuscell\.org|taofinances\.com|\.svc\.cluster\.local|app\.kassova\.com|192\.168\.|10\.[0-9]+\.[0-9]+\.[0-9]+'
+      if grep -rInE "$pattern" --include='*.html' --include='*.css' --include='*.js' --include='*.txt' --include='*.xml' .; then
+        echo "A published file names an internal host, address or the app (see above)." >&2
+        exit 1
+      fi
+      echo "No internal host, address or app surface in the published files."
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Reads https://kassova.com from outside: apex 200 with this page, http -> https,
+# www -> apex. Runs from a schedule or by hand (web) until the zone and Pages are live;
+# kassova/ops#18 then adds the main-branch rule so every merge proves its own deploy.
+verify:live:
+  stage: mirror
+  image: ${IMAGE_REGISTRY}/dockerhub-proxy/alpine/k8s:1.37.2
+  needs: []
+  script:
+    - sh ci/verify-live.sh
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
