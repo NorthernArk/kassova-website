@@ -13,8 +13,10 @@ value of any secret appears here or anywhere in git.
 | CI variables on kassova/website, protected and masked: `KASSOVA_INTAKE_AZURE_CLIENT_ID`, `KASSOVA_INTAKE_AZURE_CLIENT_SECRET`, `KASSOVA_INTAKE_AZURE_TENANT_ID`, `KASSOVA_INTAKE_AZURE_SUBSCRIPTION_ID` | GitLab project settings, from Key Vault | `intake:deploy` appears on the next main pipeline |
 | `sp-kassova-intake-deploy` as a Dataverse application user with System Administrator in `https://dream.crm.dynamics.com` | Power Platform admin, once | `intake:deploy` passes its Dataverse step |
 | Job-token push allowed on kassova/website (`ci_push_repository_for_job_token_allowed`) | GitLab project setting, in infrastructure Terraform | `pages:publish` pushes `gh-pages` |
-| git-mirror-sync pair carries `gh-pages` to NorthernArk/kassova-website | DroidOpsInc/nebula `tools/git-mirror-sync` | the GitHub branch matches GitLab |
-| GitHub Pages source: branch `gh-pages`, root; HTTPS enforced | infrastructure Terraform (`dns-kassova`) | `ci/verify-live.sh` |
+| GitHub branch `gh-pages` created at the shared root `cb69b33f` | infrastructure Terraform (`dns-kassova`) | `git ls-remote https://github.com/NorthernArk/kassova-website.git gh-pages` |
+| git-mirror-sync pair carries `gh-pages` **only** (not `main`) to NorthernArk/kassova-website | DroidOpsInc/nebula `tools/git-mirror-sync` | the GitHub branch matches GitLab; GitHub `main` no longer moves |
+| GitHub Pages source: branch `gh-pages`, root; HTTPS enforced | infrastructure Terraform (`dns-kassova`), after the first publish | `ci/verify-live.sh` |
+| GitHub default branch `gh-pages`, GitHub `main` deleted | infrastructure Terraform (`dns-kassova`), after Pages serves `gh-pages` | `git ls-remote` lists `gh-pages` only |
 
 ## 2. Turn on publishing
 

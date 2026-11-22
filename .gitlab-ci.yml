@@ -29,7 +29,9 @@ variables:
   GH_PAGES_PUBLISH: "false"
 
 # Reads https://kassova.com from outside: apex 200 with this site, http -> https,
-# www -> apex. Runs from a schedule or by hand (web).
+# www -> apex. On main, once publishing is on, every release proves its own deploy: it runs
+# 10 minutes after pages:publish, when git-mirror-sync (300 s interval) and the Pages build have
+# carried the release out (kassova/ops#18). Also from a schedule or by hand (web).
 verify:live:
   stage: mirror
   image: ${IMAGE_REGISTRY}/dockerhub-proxy/alpine/k8s:1.37.2
@@ -37,5 +39,8 @@ verify:live:
   script:
     - sh ci/verify-live.sh
   rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push" && $GH_PAGES_PUBLISH == "true"
+      when: delayed
+      start_in: 10 minutes
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_PIPELINE_SOURCE == "web"

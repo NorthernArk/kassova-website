@@ -4,8 +4,9 @@ The public Kassova marketing site: an Astro static site for family offices and m
 feature pages, articles, squeeze pages and lead forms that create leads in D365 through an Azure Logic App.
 Order: kassova/website#2. Design: [ADR 0001](docs/adr/0001-astro-site-and-lead-intake.md).
 
-The repository is mirrored publicly. Nothing here may name an internal system, a client or a price, or contain a
-secret; `scripts/audit-site.mjs` enforces that on every build.
+Only the built site is public: git-mirror-sync carries the `gh-pages` branch to NorthernArk/kassova-website, and
+the sources stay on GitLab (ADR 0001, decision 8). No page may name an internal system, a client or a price, or
+contain a secret; `scripts/audit-site.mjs` enforces that on every build. No secret is ever in this repo.
 
 ## Layout
 
