@@ -58,6 +58,12 @@ on GitHub Pages, with no third-party scripts, fonts, analytics, form vendors or 
      fast-forwards with no special bootstrap;
    - once Pages serves `gh-pages`, GitHub's default branch becomes `gh-pages` and GitHub's `main` is deleted.
 
+   The pair is bidirectional, so mirroring `main` also let GitHub-side writes into GitLab's `main`. On
+   2026-11-22 the Pages `cname` changes made by Terraform committed "Delete CNAME" (13:53Z) and "Create CNAME"
+   (14:03Z) to GitHub's `main`. Both came back to GitLab `main` (`84b8b1c`, `f6c623c`), and the second one
+   dropped the final newline, which broke `site:build`'s byte comparison on main. With `gh-pages` only, the
+   sources branch can no longer be written from GitHub.
+
 ## Consequences
 
 - The site cannot run code in the browser, so there is no client-side validation beyond HTML attributes, and no

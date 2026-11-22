@@ -25,7 +25,9 @@ site:build:
   needs: []
   interruptible: true
   script:
-    - test "$(cat CNAME)" = "kassova.com" && cmp CNAME public/CNAME || { echo "CNAME and public/CNAME must both be exactly kassova.com" >&2; exit 1; }
+    # Compare contents, not bytes: GitHub's Pages API rewrites the root CNAME without a final newline
+    # (ADR 0001, decision 8), and both forms are the same domain to Pages.
+    - test "$(cat CNAME)" = "kassova.com" && test "$(cat public/CNAME)" = "kassova.com" || { echo "CNAME and public/CNAME must both hold exactly kassova.com" >&2; exit 1; }
     - npm test
     - npm run check
     - npm run build
