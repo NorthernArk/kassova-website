@@ -45,12 +45,28 @@ on GitHub Pages, with no third-party scripts, fonts, analytics, form vendors or 
    (item `kassova-intake-deploy-sp-secret`) and in protected, masked CI variables; GitLab OIDC cannot federate
    to Entra because the GitLab issuer is internal. Without those variables the deploy jobs are not created.
 
+8. **The public mirror carries `gh-pages` only; sources stay on GitLab.** (Added 2026-11-22, kassova/website#2
+   note 478676.) Until this decision the git-mirror-sync pair carried `main`, so the merge of !4 put the sources
+   on the public GitHub repo, including `infra/lead-intake/`, the CI files, this ADR and the runbook, which name
+   internal resources (resource group, Key Vault, deploy identity, Dataverse environment). No secret was in them,
+   but the public site rule is that only the site is public. The alternative, a content check on mirrored
+   files, was rejected: infrastructure code has to name the resources it deploys, so the check would either block
+   the IaC or need an allow-list that is itself the leak. So:
+   - the pair carries `gh-pages` only, which holds nothing but the audited build (`scripts/audit-site.mjs`);
+   - GitHub's `gh-pages` is created at the shared root `cb69b33f` (GitHub's original README commit, already in
+     this history), and `ci/publish-gh-pages.sh` starts the GitLab `gh-pages` from the same commit, so the pair
+     fast-forwards with no special bootstrap;
+   - once Pages serves `gh-pages`, GitHub's default branch becomes `gh-pages` and GitHub's `main` is deleted.
+
 ## Consequences
 
 - The site cannot run code in the browser, so there is no client-side validation beyond HTML attributes, and no
   campaign capture from query strings. Campaigns are per page, which is what the D365 views need.
 - Infrastructure outside this repo is needed once: the deploy identity and its roles, the resource group, the
-  Dataverse bootstrap of that identity, the job-token push setting, the Pages source switch and the mirror of
-  `gh-pages`. docs/lead-intake-runbook.md lists them.
+  Dataverse bootstrap of that identity, the job-token push setting, GitHub's `gh-pages` at the shared root, the
+  Pages source switch, the mirror of `gh-pages` only, and retiring GitHub's `main`. docs/lead-intake-runbook.md
+  lists them.
+- Commits of `main` up to the switch stay in the history GitHub served until its `main` is deleted; they name
+  resources, never a secret.
 - If the Dataverse environment ever needs a licence for application users or leads that we do not hold, the
   gap is written on kassova/website#2; nothing is bought.

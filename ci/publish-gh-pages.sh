@@ -3,9 +3,15 @@
 # A new commit on top of the current gh-pages, never a force push, so the branch history is the
 # release history and the git-mirror-sync pair can carry it to GitHub. Pushes with CI_JOB_TOKEN,
 # which needs "Allow Git push requests to the repository" for job tokens on this project.
+#
+# The public mirror carries gh-pages only (ADR 0001, decision 8). git-mirror-sync fast-forwards a
+# branch that exists on both sides, so the first gh-pages starts from SHARED_ROOT: GitHub's original
+# root commit, which is in this repo's history (kassova/website!2) and where GitHub's gh-pages is
+# created (FocusApiary/infrastructure, dns-kassova). It holds one README and no source.
 set -eu
 
 site="${1:-dist}"
+SHARED_ROOT="cb69b33fe15c75eacc56cd79572193831395c0a7"
 : "${CI_JOB_TOKEN:?runs in GitLab CI only}"
 : "${CI_SERVER_HOST:?}" "${CI_PROJECT_PATH:?}" "${CI_COMMIT_SHA:?}"
 test "$(cat "$site/CNAME")" = "kassova.com" || { echo "$site/CNAME must be kassova.com" >&2; exit 1; }
@@ -23,7 +29,11 @@ found=$?
 set -e
 case "$found" in
   0) git -C "$work" fetch --quiet --depth 1 origin gh-pages && git -C "$work" checkout --quiet -B gh-pages FETCH_HEAD ;;
-  2) git -C "$work" checkout --quiet --orphan gh-pages; echo "gh-pages does not exist yet; starting it" ;;
+  2) git -C "$work" fetch --quiet origin main
+     git -C "$work" merge-base --is-ancestor "$SHARED_ROOT" FETCH_HEAD \
+       || { echo "the shared root $SHARED_ROOT is not in main's history" >&2; exit 1; }
+     git -C "$work" checkout --quiet -B gh-pages "$SHARED_ROOT"
+     echo "gh-pages does not exist yet; starting it from the shared root $SHARED_ROOT" ;;
   *) echo "cannot read the remote (exit $found)" >&2; exit 1 ;;
 esac
 
