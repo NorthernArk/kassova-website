@@ -1,0 +1,21 @@
+---
+import Base from '../layouts/Base.astro';
+import LeadForm from '../components/LeadForm.astro';
+---
+<Base title="Join the waitlist" description="Join the Kassova waitlist to hear when new capabilities, such as the planned compliance calendar, are ready.">
+  <section class="hero shell">
+    <div class="squeeze-grid">
+      <div>
+        <p class="eyebrow">Join the waitlist</p>
+        <h1>Hear first when the next part is ready.</h1>
+        <p class="lede">Some of Kassova is built, some is waiting on live use and some is planned. Join the waitlist and we will write when a part you care about is ready.</p>
+        <ul class="proof-list">
+          <li>One short note when something you asked about is ready.</li>
+          <li>No newsletter and no mailing list.</li>
+          <li>Your details stay with us.</li>
+        </ul>
+      </div>
+      <div class="form-card"><LeadForm form="waitlist" campaign="site-waitlist" /></div>
+    </div>
+  </section>
+</Base>

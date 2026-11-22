@@ -1,0 +1,22 @@
+---
+import Base from '../layouts/Base.astro';
+import LeadForm from '../components/LeadForm.astro';
+---
+<Base title="Request a demo" description="Request a short Kassova walkthrough with synthetic data, shaped around the entities you keep.">
+  <section class="hero shell">
+    <div class="squeeze-grid">
+      <div>
+        <p class="eyebrow">Request a demo</p>
+        <h1>See Kassova with synthetic books shaped like yours.</h1>
+        <p class="lede">Tell us a little about the entities you keep. A person reads every request and replies to arrange a time.</p>
+        <ul class="proof-list">
+          <li>The close board across several clients.</li>
+          <li>Exact multi-entity books and the entity graph.</li>
+          <li>Owner decision cards and the view-only role.</li>
+          <li>What is built, what is waiting on live use, and what is planned.</li>
+        </ul>
+      </div>
+      <div class="form-card"><LeadForm form="demo" campaign="site-demo" /></div>
+    </div>
+  </section>
+</Base>

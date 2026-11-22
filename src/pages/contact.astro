@@ -1,0 +1,20 @@
+---
+import Base from '../layouts/Base.astro';
+import LeadForm from '../components/LeadForm.astro';
+---
+<Base title="Talk to us" description="Ask Kassova a question about multi-entity books, the close, or whether it fits your office.">
+  <section class="hero shell">
+    <div class="squeeze-grid">
+      <div>
+        <p class="eyebrow">Talk to us</p>
+        <h1>Ask us anything about your books.</h1>
+        <p class="lede">Whether Kassova fits, how separation works, or what is planned: ask, and a person will answer the question you asked.</p>
+        <ul class="proof-list">
+          <li>If the honest answer is "not built yet", we say so.</li>
+          <li>We will not add you to a list.</li>
+        </ul>
+      </div>
+      <div class="form-card"><LeadForm form="talk" campaign="site-talk" /></div>
+    </div>
+  </section>
+</Base>

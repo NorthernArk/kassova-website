@@ -1,0 +1,40 @@
+---
+/** A squeeze page: one offer, one form, no navigation and no links away from the offer except the privacy notice. */
+import '../styles/global.css';
+import Logo from '../components/Logo.astro';
+import { absolute, SITE } from '../site';
+import { CSP } from '../csp';
+
+interface Props { title: string; description: string }
+const { title, description } = Astro.props;
+const canonical = absolute(Astro.url.pathname);
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content={CSP} />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>{title} | {SITE.name}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#151a21" />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary" />
+  </head>
+  <body>
+    <main id="main" class="squeeze">
+      <div class="shell">
+        <p class="mark"><Logo size={30} label="Kassova" /><span>Kassova</span></p>
+        <slot />
+        <p class="muted fine">&copy; Kassova. {SITE.tagline} Examples use synthetic data only. <a href="/privacy/">Privacy</a>.</p>
+      </div>
+    </main>
+  </body>
+</html>

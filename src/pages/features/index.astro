@@ -1,0 +1,25 @@
+---
+import Base from '../../layouts/Base.astro';
+import Cta from '../../components/Cta.astro';
+import { FEATURES } from '../../data/features';
+import { absolute } from '../../site';
+const jsonLd = [{
+  '@context': 'https://schema.org', '@type': 'ItemList', name: 'Kassova features',
+  itemListElement: FEATURES.map((f, i) => ({ '@type': 'ListItem', position: i + 1, url: absolute(`/features/${f.slug}/`), name: f.title })),
+}];
+---
+<Base title="Features" description="What Kassova does for family offices and multi-entity finance teams, with what is built, built but not yet live, and planned." jsonLd={jsonLd}>
+  <section class="hero shell">
+    <p class="eyebrow">Features</p>
+    <h1>One workspace for the books of many entities.</h1>
+    <p class="lede">Each area below says what is built, what is built and waiting on live use, and what is planned.</p>
+  </section>
+  <section class="shell">
+    <ul class="grid">
+      {FEATURES.map((f) => (
+        <li class="card"><h2 class="h3"><a href={`/features/${f.slug}/`}>{f.title}</a></h2><p>{f.summary}</p></li>
+      ))}
+    </ul>
+    <Cta />
+  </section>
+</Base>

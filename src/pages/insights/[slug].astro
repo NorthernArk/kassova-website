@@ -1,0 +1,57 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { getCollection, render, type CollectionEntry } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import Cta from '../../components/Cta.astro';
+import { featureBySlug } from '../../data/features';
+import { SITE, absolute } from '../../site';
+
+export const getStaticPaths = (async () => (await getCollection('articles')).map((article) => ({ params: { slug: article.id }, props: { article } }))) satisfies GetStaticPaths;
+interface Props { article: CollectionEntry<'articles'> }
+const { article } = Astro.props;
+const d = article.data;
+const { Content } = await render(article);
+const feature = featureBySlug(d.feature);
+const url = absolute(`/insights/${article.id}/`);
+const fmt = new Intl.DateTimeFormat('en-US', { dateStyle: 'long', timeZone: 'UTC' });
+const modified = (d.updated ?? d.published).toISOString();
+const jsonLd = [
+  {
+    '@context': 'https://schema.org', '@type': 'Article', headline: d.title, description: d.description, url,
+    mainEntityOfPage: url, datePublished: d.published.toISOString(), dateModified: modified, articleSection: d.category,
+    author: { '@type': 'Organization', name: SITE.name, url: SITE.origin },
+    publisher: { '@type': 'Organization', name: SITE.name, url: SITE.origin, logo: { '@type': 'ImageObject', url: absolute('/favicon.svg') } },
+    citation: d.sources.map((s) => ({ '@type': 'CreativeWork', name: s.title, publisher: s.publisher, url: s.url })),
+  },
+  {
+    '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Insights', item: absolute('/insights/') },
+      { '@type': 'ListItem', position: 2, name: d.title, item: url },
+    ],
+  },
+];
+---
+<Base title={d.title} description={d.description} type="article" jsonLd={jsonLd} published={d.published.toISOString()} modified={modified}>
+  <nav class="shell breadcrumb" aria-label="Breadcrumb"><a href="/insights/">Insights</a> / {d.category}</nav>
+  <article class="shell">
+    <header class="hero prose">
+      <p class="eyebrow">{d.category}</p>
+      <h1>{d.title}</h1>
+      <p class="lede">{d.description}</p>
+      <p class="meta">Published <time datetime={d.published.toISOString()}>{fmt.format(d.published)}</time>{d.updated && <> · updated <time datetime={d.updated.toISOString()}>{fmt.format(d.updated)}</time></>}</p>
+    </header>
+    {d.generalInformation && (
+      <p class="disclaimer"><strong>General information.</strong> This article explains rules and practice in general terms. It is not tax, legal or accounting advice; rules change and depend on your facts, so confirm with a qualified adviser before acting.</p>
+    )}
+    <div class="prose"><Content /></div>
+    <aside class="prose" aria-labelledby="in-kassova">
+      <h2 id="in-kassova">In Kassova</h2>
+      <p>This is the work Kassova is built for. See <a href={`/features/${feature.slug}/`}>{feature.title.toLowerCase()}</a> for what is built, built but not yet live, and planned.</p>
+    </aside>
+    <section class="sources" aria-labelledby="sources">
+      <h2 id="sources" class="h3">Sources</h2>
+      <ol>{d.sources.map((s) => <li><a href={s.url} rel="noopener">{s.title}</a>, {s.publisher}.</li>)}</ol>
+    </section>
+    <Cta primary={d.cta} />
+  </article>
+</Base>

@@ -1,20 +1,37 @@
-# Kassova Website
+# kassova.com
 
-The public Kassova site at https://kassova.com. It describes what the product does, and
-nothing else: no account access, no product code, no data, no names of the families or people
-served, and no prices.
+The public Kassova marketing site: an Astro static site for family offices and multi-entity finance teams, with
+feature pages, articles, squeeze pages and lead forms that create leads in D365 through an Azure Logic App.
+Order: kassova/website#2. Design: [ADR 0001](docs/adr/0001-astro-site-and-lead-intake.md).
 
-- **Source of truth:** the GitLab repo kassova/website, branch `main`. Change it by merge
-  request.
-- **Publishing:** git-mirror-sync fast-forwards `main` to the public GitHub repo
-  `NorthernArk/kassova-website`. GitHub Pages serves its root at the domain in `CNAME`, with
-  HTTPS enforced; `www.kassova.com` redirects to the apex. The mirror only fast-forwards, so
-  never rewrite `main` and never merge by squash.
-- **DNS:** the Cloudflare Free zone `kassova.com`, declared in Terraform with the
-  infrastructure code. The domain takes no mail: null MX, SPF `-all`, DMARC `p=reject`.
-- **CI:** launch-sequence `static-site` (lint); `check:public-content`
-  (`ci/check-public-content.sh`: no internal host or address, no product link, no account
-  access, form or script, no interface reference and no price in any published file, this README
-  included); `verify:live` (`ci/verify-live.sh`, reads the site from outside).
-- The product itself is private and is never linked from here.
-- Tracking: kassova/ops#18, epic kassova/overview&17.
+The repository is mirrored publicly. Nothing here may name an internal system, a client or a price, or contain a
+secret; `scripts/audit-site.mjs` enforces that on every build.
+
+## Layout
+
+| Path | What |
+|---|---|
+| `src/pages/` | Home, features, insights (articles), demo, waitlist, contact, thanks, intake-error, privacy, 404, squeeze pages under `go/`, and the sitemap, RSS and robots endpoints |
+| `src/data/features.ts` | Feature pages, one per product epic (kassova/overview &5 to &13), each capability marked Built, Built not yet live, or Planned |
+| `src/data/squeeze.ts` | Squeeze pages and the campaign each one writes to D365 |
+| `src/content/articles/` | Articles: Markdown with title, description, category, feature link, sources and call to action in the front matter |
+| `src/components/LeadForm.astro` | The one lead form (no script; posts to the Logic App) |
+| `infra/lead-intake/` | The Logic App (Bicep and workflow definition), the Dataverse definition and applier, the what-if gate, the live e2e check |
+| `scripts/audit-site.mjs` | The gate on the built site |
+| `tests/` | `node --test` unit tests: the form-to-workflow-to-Dataverse contract, the audit, the gate |
+| `index.html`, `CNAME`, `.nojekyll` (root) | The transitional page Pages serves from `main` until it serves `gh-pages` |
+
+## Writing an article
+
+Add `src/content/articles/<slug>.md`. The schema in `src/content.config.ts` requires a feature slug, a call to
+action and at least one source. Rules:
+
+- Every figure and rule comes from a cited source. No invented numbers, testimonials, customers or certifications.
+- Tax, legal or compliance content sets `generalInformation: true`, which prints the general-information notice.
+- Plain, exact, calm (kassova/app `docs/brand/voice-and-messaging.md`). Mark anything not built as planned.
+
+## Checks
+
+CI runs everything; nothing is built on a workstation. `site:build` runs `npm test`, `astro check`, the build
+and the audit. `intake:validate` compiles the Bicep and validates the Dataverse definition. Release and intake
+setup: [docs/lead-intake-runbook.md](docs/lead-intake-runbook.md).

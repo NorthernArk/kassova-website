@@ -1,0 +1,61 @@
+{
+  "$comment": "Desired state of the Dataverse objects the lead intake needs. Applied by apply.mjs (idempotent, never deletes). Column lengths must hold what workflow.json accepts; tests/intake-contract.test.mjs checks that.",
+  "environment": "https://dream.crm.dynamics.com",
+  "publisher": {
+    "uniquename": "kassova",
+    "friendlyname": "Kassova",
+    "customizationprefix": "kas",
+    "customizationoptionvalueprefix": 47213,
+    "description": "Kassova website lead intake."
+  },
+  "solution": {
+    "uniquename": "kassova_web_intake",
+    "friendlyname": "Kassova web intake",
+    "version": "1.0.0.0",
+    "description": "Columns, role and application user for kassova.com lead intake."
+  },
+  "businessUnit": {
+    "name": "Kassova"
+  },
+  "role": {
+    "name": "Kassova Web Intake",
+    "privileges": [
+      "prvCreateLead",
+      "prvReadLead",
+      "prvWriteLead",
+      "prvAppendLead",
+      "prvAppendToLead"
+    ],
+    "depth": "Local"
+  },
+  "applicationUser": {
+    "firstname": "Kassova",
+    "lastname": "Web Intake"
+  },
+  "leadColumns": [
+    {
+      "schemaName": "kas_SourcePage",
+      "label": "Source page",
+      "description": "The kassova.com path the form was sent from.",
+      "maxLength": 300
+    },
+    {
+      "schemaName": "kas_Campaign",
+      "label": "Campaign",
+      "description": "The campaign of the page that produced the lead, such as sq-multi-entity-close.",
+      "maxLength": 100
+    },
+    {
+      "schemaName": "kas_Form",
+      "label": "Form",
+      "description": "Which form: demo, waitlist or talk.",
+      "maxLength": 32
+    },
+    {
+      "schemaName": "kas_IntakeId",
+      "label": "Intake run",
+      "description": "The Logic App run that created the lead.",
+      "maxLength": 100
+    }
+  ]
+}

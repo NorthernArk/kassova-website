@@ -1,45 +1,35 @@
-# kassova.com, the public Kassova site (kassova/ops#18, epic kassova/overview&17).
+# kassova.com, the public Kassova marketing site: Astro, static, served by GitHub Pages
+# (kassova/website#2, docs/adr/0001-astro-site-and-lead-intake.md).
 #
-# Source of truth: this GitLab repo, branch main. Publishing: git-mirror-sync fast-forwards
-# main to the public GitHub repo NorthernArk/kassova-website (a bidirectional pair in
-# DroidOpsInc/nebula tools/git-mirror-sync, the wiremark-web pattern), and GitHub Pages
-# serves that repo's main from its root at the custom domain in CNAME, HTTPS enforced.
-# The repository, its Pages settings and the DNS records are Terraform in
-# FocusApiary/infrastructure. No token lives here.
+# Source of truth: this GitLab repo, branch main. git-mirror-sync (DroidOpsInc/nebula) mirrors
+# this repo to the public GitHub repo NorthernArk/kassova-website, and GitHub Pages serves it at
+# the custom domain in CNAME. The repository, its Pages settings and DNS are Terraform in
+# FocusApiary/infrastructure. No token or secret lives here.
 #
-# The pipeline is launch-sequence's static-site composition: lint on every MR, no build.
-# Its GitLab Pages job only runs on a protected `demo` branch (none exists) and its mirror
-# job only on gh-pages, where GITHUB_MIRROR_EXTERNAL makes it a no-op: the mirror is
-# git-mirror-sync, not this pipeline.
+# Release path: site:build checks and builds every MR and main push. On main, pages:publish
+# rebuilds with the live intake endpoint and fast-forwards the built site onto the gh-pages
+# branch, which the mirror carries to GitHub and Pages serves. pages:publish is off until
+# GH_PAGES_PUBLISH below is "true", which is set in git once Pages serves gh-pages (runbook).
+# Until then Pages serves main's root, where the transitional index.html and CNAME stay.
+#
+# The lead intake (Logic App into D365) is ci/intake.gitlab-ci.yml.
 include:
   - project: 'DroidOpsInc/launch-sequence'
     ref: main
     file: '/pipelines/static-site.yml'
+  - local: ci/site.gitlab-ci.yml
+  - local: ci/intake.gitlab-ci.yml
 
 variables:
   GITHUB_REPO: "NorthernArk/kassova-website"
   GITHUB_MIRROR_EXTERNAL: "true"
   SITE_DIR: "."
+  KASSOVA_NODE_IMAGE: "${IMAGE_REGISTRY}/dockerhub-proxy/library/node:24.18.1-bookworm"
+  # Flipped to "true" in git once Pages serves the gh-pages branch (docs/lead-intake-runbook.md).
+  GH_PAGES_PUBLISH: "false"
 
-# The site is public and describes the app's features only (CEO 2026-11-22, kassova/ops#18
-# note 474248; epic &17: "the public site carries no app surface"). This guards the published
-# files on every MR and main push: no internal hostname or address, no app link, no sign-in,
-# no form, no script (it is a static page, no app code), no API and no price. Client and
-# person names cannot be listed here (the list would publish them); review catches those.
-check:public-content:
-  stage: preflight
-  image: ${IMAGE_REGISTRY}/dockerhub-proxy/library/alpine:3.24
-  needs: []
-  script:
-    - test "$(cat CNAME)" = "kassova.com" || { echo "CNAME must be exactly kassova.com" >&2; exit 1; }
-    - sh ci/check-public-content.sh
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
-# Reads https://kassova.com from outside: apex 200 with this page, http -> https,
-# www -> apex. Runs from a schedule or by hand (web) until the zone and Pages are live;
-# kassova/ops#18 then adds the main-branch rule so every merge proves its own deploy.
+# Reads https://kassova.com from outside: apex 200 with this site, http -> https,
+# www -> apex. Runs from a schedule or by hand (web).
 verify:live:
   stage: mirror
   image: ${IMAGE_REGISTRY}/dockerhub-proxy/alpine/k8s:1.37.2

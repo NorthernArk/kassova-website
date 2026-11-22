@@ -1,0 +1,32 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import Cta from '../../components/Cta.astro';
+import { absolute } from '../../site';
+
+const articles = (await getCollection('articles')).sort((a, b) => b.data.published.getTime() - a.data.published.getTime());
+const fmt = new Intl.DateTimeFormat('en-US', { dateStyle: 'long', timeZone: 'UTC' });
+const jsonLd = [{
+  '@context': 'https://schema.org', '@type': 'Blog', name: 'Kassova insights', url: absolute('/insights/'),
+  blogPost: articles.map((a) => ({ '@type': 'BlogPosting', headline: a.data.title, url: absolute(`/insights/${a.id}/`), datePublished: a.data.published.toISOString() })),
+}];
+---
+<Base title="Insights" description="Plain, sourced notes on multi-entity books, the close, cash, records and controls for family offices and finance teams." jsonLd={jsonLd}>
+  <section class="hero shell">
+    <p class="eyebrow">Insights</p>
+    <h1>Notes for the people who keep the books.</h1>
+    <p class="lede">Plain and sourced. Where an article touches tax or compliance it is general information, not advice.</p>
+  </section>
+  <section class="shell">
+    <ul class="grid">
+      {articles.map((a) => (
+        <li class="card">
+          <p class="meta">{a.data.category} · <time datetime={a.data.published.toISOString()}>{fmt.format(a.data.published)}</time></p>
+          <h2 class="h3"><a href={`/insights/${a.id}/`}>{a.data.title}</a></h2>
+          <p>{a.data.description}</p>
+        </li>
+      ))}
+    </ul>
+    <Cta />
+  </section>
+</Base>

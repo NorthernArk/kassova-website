@@ -1,7 +1,7 @@
 #!/bin/sh
 # Verify that kassova.com is live as declared (kassova/ops#18, epic kassova/overview&17):
 #   1. https://kassova.com/ answers 200 over a certificate curl trusts, and serves this
-#      repository's page (its <title> is in the body);
+#      repository's site (its <title> starts with Kassova: the static page and the Astro home both do);
 #   2. http://kassova.com/ redirects to https (GitHub Pages "Enforce HTTPS");
 #   3. https://www.kassova.com/ redirects to the apex (GitHub Pages does this when the
 #      custom domain is the apex and www is a CNAME to <org>.github.io).
@@ -9,7 +9,7 @@
 set -eu
 
 SITE_HOST="${SITE_HOST:-kassova.com}"
-EXPECT_TEXT="${EXPECT_TEXT:-<title>Kassova</title>}"
+EXPECT_TEXT="${EXPECT_TEXT:-<title>Kassova}"
 CURL="curl --silent --show-error --max-time 20 --retry 3 --retry-delay 5 --retry-all-errors"
 failed=0
 

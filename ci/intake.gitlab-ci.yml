@@ -1,0 +1,118 @@
+# Lead intake: an Azure Logic App that turns the site's forms into D365 leads (infra/lead-intake,
+# docs/adr/0001-astro-site-and-lead-intake.md, runbook docs/lead-intake-runbook.md).
+#
+#   intake:validate  every MR and main: Bicep compiles, the Dataverse definition is valid (no credentials)
+#   intake:deploy    main, when the operator variables exist: what-if (refuses deletes), deploy the
+#                    Bicep, apply the Dataverse definition, and hand the trigger URL to pages:publish
+#   intake:e2e       on a schedule or by hand: post a synthetic lead through the live site, read it
+#                    back from D365 with its source page and campaign, delete it
+#
+# Operator variables, names only (protected, masked; the secret's source is Key Vault
+# kassova-secrets-kv, item kassova-intake-deploy-sp-secret):
+#   KASSOVA_INTAKE_AZURE_CLIENT_ID, KASSOVA_INTAKE_AZURE_CLIENT_SECRET,
+#   KASSOVA_INTAKE_AZURE_TENANT_ID, KASSOVA_INTAKE_AZURE_SUBSCRIPTION_ID
+# Without them the deploy jobs are not created and the pipeline stays green.
+
+variables:
+  INTAKE_RESOURCE_GROUP: "rg-kassova-web-intake"
+  INTAKE_DATAVERSE_URL: "https://dream.crm.dynamics.com"
+  # Pinned with the digests of the release assets, so a changed download cannot slip in.
+  INTAKE_BICEP_VERSION: "v0.48.1"
+  INTAKE_BICEP_SHA256: "b09ec25a9d376c1f8e33ede6ed22b587f915ad68488d5db77a6f9541748c7f6e"
+  INTAKE_AZURE_CLI_VERSION: "2.91.0"
+  INTAKE_UV_VERSION: "0.13.6"
+  INTAKE_UV_SHA256: "f29c3e94ffabd7e6f3ba521dba169a9b7ec12100bf3257087f0f24f6123f3645"
+
+.intake-bicep:
+  image: "${KASSOVA_NODE_IMAGE}"
+  variables:
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: "1"
+    UV_CACHE_DIR: "${CI_PROJECT_DIR}/.tools/uv-cache"
+    UV_PYTHON_DOWNLOADS: "never"
+  before_script:
+    - mkdir -p "${CI_PROJECT_DIR}/.tools"
+    - curl --fail --silent --show-error --location --output "${CI_PROJECT_DIR}/.tools/bicep" "https://github.com/Azure/bicep/releases/download/${INTAKE_BICEP_VERSION}/bicep-linux-x64"
+    - echo "${INTAKE_BICEP_SHA256}  ${CI_PROJECT_DIR}/.tools/bicep" | sha256sum --check --status
+    - chmod +x "${CI_PROJECT_DIR}/.tools/bicep"
+    - export PATH="${CI_PROJECT_DIR}/.tools:${PATH}"
+
+intake:validate:
+  extends: .intake-bicep
+  stage: preflight
+  needs: []
+  interruptible: true
+  script:
+    - bicep build infra/lead-intake/main.bicep --stdout > /dev/null
+    - node infra/lead-intake/dataverse/apply.mjs --validate
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+.intake-operator-ready:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $KASSOVA_INTAKE_AZURE_CLIENT_ID && $KASSOVA_INTAKE_AZURE_CLIENT_SECRET && $KASSOVA_INTAKE_AZURE_TENANT_ID && $KASSOVA_INTAKE_AZURE_SUBSCRIPTION_ID'
+    - when: never
+
+# Node plus the Azure CLI from PyPI at a pinned version, signed in as sp-kassova-intake-deploy.
+# GitLab OIDC cannot federate to Entra here: the GitLab issuer is internal, Entra cannot reach it.
+.intake-azure:
+  extends: .intake-bicep
+  before_script:
+    - !reference [.intake-bicep, before_script]
+    - curl --fail --silent --show-error --location --output "${CI_PROJECT_DIR}/.tools/uv.tar.gz" "https://github.com/astral-sh/uv/releases/download/${INTAKE_UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz"
+    - echo "${INTAKE_UV_SHA256}  ${CI_PROJECT_DIR}/.tools/uv.tar.gz" | sha256sum --check --status
+    - tar -xzf "${CI_PROJECT_DIR}/.tools/uv.tar.gz" -C "${CI_PROJECT_DIR}/.tools" --strip-components=1
+    - ${CI_PROJECT_DIR}/.tools/uv venv --quiet --python python3 "${CI_PROJECT_DIR}/.tools/az"
+    - ${CI_PROJECT_DIR}/.tools/uv pip install --quiet --python "${CI_PROJECT_DIR}/.tools/az/bin/python" "azure-cli==${INTAKE_AZURE_CLI_VERSION}"
+    - export PATH="${CI_PROJECT_DIR}/.tools/az/bin:${PATH}"
+    - az config set bicep.use_binary_from_path=true core.only_show_errors=true core.collect_telemetry=false
+    - az login --service-principal --username "${KASSOVA_INTAKE_AZURE_CLIENT_ID}" --tenant "${KASSOVA_INTAKE_AZURE_TENANT_ID}" --password "${KASSOVA_INTAKE_AZURE_CLIENT_SECRET}" --output none
+    - az account set --subscription "${KASSOVA_INTAKE_AZURE_SUBSCRIPTION_ID}"
+
+# Deploy from git: Bicep, then the Dataverse objects, then read the trigger URL for the site build.
+# The trigger URL is the public form endpoint (it ships in every page's form action); it is passed
+# on as a dotenv artifact and never printed.
+intake:deploy:
+  extends: [.intake-azure, .intake-operator-ready]
+  stage: deploy
+  needs:
+    - job: intake:validate
+      artifacts: false
+  resource_group: kassova-intake
+  script:
+    - az deployment group what-if --resource-group "${INTAKE_RESOURCE_GROUP}" --name kassova-web-intake --template-file infra/lead-intake/main.bicep --parameters dataverseUrl="${INTAKE_DATAVERSE_URL}" --no-pretty-print --output json > whatif.json
+    - node infra/lead-intake/whatif-gate.mjs whatif.json
+    - az deployment group create --resource-group "${INTAKE_RESOURCE_GROUP}" --name kassova-web-intake --template-file infra/lead-intake/main.bicep --parameters dataverseUrl="${INTAKE_DATAVERSE_URL}" --output none
+    - export INTAKE_IDENTITY_CLIENT_ID="$(az deployment group show --resource-group "${INTAKE_RESOURCE_GROUP}" --name kassova-web-intake --query properties.outputs.identityClientId.value --output tsv)"
+    - workflow="$(az deployment group show --resource-group "${INTAKE_RESOURCE_GROUP}" --name kassova-web-intake --query properties.outputs.workflowName.value --output tsv)"
+    - export DATAVERSE_URL="${INTAKE_DATAVERSE_URL}"
+    - export DATAVERSE_TOKEN="$(az account get-access-token --resource "${INTAKE_DATAVERSE_URL}" --query accessToken --output tsv)"
+    - node infra/lead-intake/dataverse/apply.mjs --apply
+    - unset DATAVERSE_TOKEN
+    - endpoint="$(az rest --method post --uri "https://management.azure.com/subscriptions/${KASSOVA_INTAKE_AZURE_SUBSCRIPTION_ID}/resourceGroups/${INTAKE_RESOURCE_GROUP}/providers/Microsoft.Logic/workflows/${workflow}/triggers/manual/listCallbackUrl?api-version=2019-05-01" --query value --output tsv)"
+    - case "$endpoint" in https://*.logic.azure.com*) ;; *) echo "listCallbackUrl did not return a Logic App URL" >&2; exit 1 ;; esac
+    - printf 'KASSOVA_LEAD_ENDPOINT=%s\n' "$endpoint" > intake.env
+    - echo "deployed ${workflow}; Dataverse applied; endpoint handed to pages:publish"
+  artifacts:
+    expire_in: 1 day
+    reports:
+      dotenv: intake.env
+
+intake:e2e:
+  extends: .intake-azure
+  stage: mirror
+  needs:
+    - job: pages:publish
+      optional: true
+      artifacts: false
+  script:
+    - export DATAVERSE_URL="${INTAKE_DATAVERSE_URL}"
+    - export DATAVERSE_TOKEN="$(az account get-access-token --resource "${INTAKE_DATAVERSE_URL}" --query accessToken --output tsv)"
+    - node infra/lead-intake/e2e.mjs
+  artifacts:
+    when: always
+    expire_in: 90 days
+    paths:
+      - e2e-report.json
+  rules:
+    - if: '($CI_PIPELINE_SOURCE == "schedule" || $CI_PIPELINE_SOURCE == "web") && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $KASSOVA_INTAKE_E2E == "true" && $KASSOVA_INTAKE_AZURE_CLIENT_ID && $KASSOVA_INTAKE_AZURE_CLIENT_SECRET && $KASSOVA_INTAKE_AZURE_TENANT_ID && $KASSOVA_INTAKE_AZURE_SUBSCRIPTION_ID'

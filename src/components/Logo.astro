@@ -1,0 +1,11 @@
+---
+/** The Kassova symbol, inline so no image request is made. Reversed colours on dark grounds (brand rule: bright brass only on dark). */
+interface Props { size?: number; reversed?: boolean; label?: string }
+const { size = 28, reversed = false, label } = Astro.props;
+const stem = reversed ? '#e6eaf0' : '#151a21';
+const arms = reversed ? '#ffa028' : '#b35900';
+---
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-11 -11 66 66" width={size} height={size} role={label ? 'img' : undefined} aria-hidden={label ? undefined : 'true'} aria-label={label}>
+  <path fill={stem} d="M0 0L8.8 0L8.8 44L0 44Z" />
+  <path fill={arms} d="M11.6 16.06L30.22 0L44 0L20.11 20.6L11.6 20.6ZM11.6 23.4L20.11 23.4L44 44L30.22 44L11.6 27.94Z" />
+</svg>
