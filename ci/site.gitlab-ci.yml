@@ -33,6 +33,7 @@ site:build:
     - npm run build
     - node scripts/audit-site.mjs dist
   artifacts:
+    when: always
     expire_in: 1 week
     paths:
       - dist/
