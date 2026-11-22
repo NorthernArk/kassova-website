@@ -15,8 +15,6 @@
       - .npm/
   before_script:
     - node --version
-    # Bootstrap only: the first pipeline has no lockfile yet and resolves one, kept as an artifact to commit.
-    - test -f package-lock.json || npm install --package-lock-only
     - npm ci --prefer-offline
 
 # Type check, unit tests, build, then the site audit on the built output (scripts/audit-site.mjs):
@@ -37,7 +35,6 @@ site:build:
     expire_in: 1 week
     paths:
       - dist/
-      - package-lock.json
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

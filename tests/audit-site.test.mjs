@@ -49,6 +49,6 @@ test('banned content is caught and the form action is ignored', () => {
   assert.equal(auditText('/a/', 'Use our API').length > 0, true);
   assert.equal(auditText('/a/', 'see app.kassova.com').length > 0, true);
   assert.equal(auditText('/a/', 'a seamless experience').length > 0, true);
-  assert.deepEqual(auditText('/a/', 'The IRS describes this under transfer pricing. A capital call.'), []);
+  assert.deepEqual(auditText('/a/', 'The IRS describes this under transfer pricing (irs.gov/transfer-pricing). A capital call.'), []);
   assert.deepEqual(auditText('/a/', `<form action="${ACTION}"></form>`), []);
 });

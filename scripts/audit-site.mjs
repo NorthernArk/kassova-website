@@ -26,7 +26,7 @@ export const BANNED = [
   { name: 'private address', re: /\b(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})\b/ },
   { name: 'sign-in vocabulary', re: /sign[ -]?(in|up)\b|\blog[ -]?(in|on)\b|password|create an account|\/auth\b|oauth|\boidc\b/i },
   { name: 'app reference', re: /(^|[^a-z])api([^a-z]|$)|openapi|graphql/i },
-  { name: 'price or plan', re: /[$€£¥] ?[0-9]|\b(usd|eur|gbp) ?[0-9]|per (month|year|seat|user)\b|\/mo\b|(?<!transfer )pricing|free trial|checkout|\bplans?\b (start|from)|subscribe now|buy now/i },
+  { name: 'price or plan', re: /[$€£¥] ?[0-9]|\b(usd|eur|gbp) ?[0-9]|per (month|year|seat|user)\b|\/mo\b|(?<!transfer[ -])pricing|free trial|checkout|\bplans?\b (start|from)|subscribe now|buy now/i },
   { name: 'brand word we do not use', re: /seamless|effortless|revolutionary|game-changing|supercharge|ai-powered|single source of truth|zero-day close|every entity|done for you|wealth intelligence|coming soon/i },
 ];
 

@@ -20,7 +20,7 @@ const articles = defineCollection({
     feature: z.enum(featureSlugs),
     cta: z.enum(['demo', 'waitlist', 'talk']),
     generalInformation: z.boolean(),
-    sources: z.array(z.object({ title: z.string(), publisher: z.string(), url: z.string().url() })).min(1),
+    sources: z.array(z.object({ title: z.string(), publisher: z.string(), url: z.url() })).min(1),
   }),
 });
 
