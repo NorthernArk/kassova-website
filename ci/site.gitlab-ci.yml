@@ -54,7 +54,11 @@ pages:publish:
       optional: true
       artifacts: true
   script:
-    - test -n "${KASSOVA_LEAD_ENDPOINT:-}" || { echo "KASSOVA_LEAD_ENDPOINT is not set: intake:deploy did not run, so the forms would have nowhere to post. Not publishing." >&2; exit 1; }
+    - |
+      if [ -z "${KASSOVA_LEAD_ENDPOINT:-}" ]; then
+        echo "KASSOVA_LEAD_ENDPOINT is not set, because intake:deploy did not run; the forms would have nowhere to post. Not publishing." >&2
+        exit 1
+      fi
     - npm run build
     - node scripts/audit-site.mjs dist --require-endpoint
     - sh ci/publish-gh-pages.sh dist
