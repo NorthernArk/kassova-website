@@ -21,22 +21,18 @@ variables:
   GITHUB_MIRROR_EXTERNAL: "true"
   SITE_DIR: "."
 
-# The page is public: no internal hostname, cluster address or app surface may reach it
-# (epic &17: "the public site carries no app surface"; no client or person names). This
-# guards the published files on every MR and main push.
+# The site is public and describes the app's features only (CEO 2026-11-22, kassova/ops#18
+# note 474248; epic &17: "the public site carries no app surface"). This guards the published
+# files on every MR and main push: no internal hostname or address, no app link, no sign-in,
+# no form, no script (it is a static page, no app code), no API and no price. Client and
+# person names cannot be listed here (the list would publish them); review catches those.
 check:public-content:
   stage: preflight
   image: ${IMAGE_REGISTRY}/dockerhub-proxy/library/alpine:3.24
   needs: []
   script:
     - test "$(cat CNAME)" = "kassova.com" || { echo "CNAME must be exactly kassova.com" >&2; exit 1; }
-    - |
-      pattern='developerdojo\.org|focuspass\.com|focuscell\.org|taofinances\.com|\.svc\.cluster\.local|app\.kassova\.com|192\.168\.|10\.[0-9]+\.[0-9]+\.[0-9]+'
-      if grep -rInE "$pattern" --include='*.html' --include='*.css' --include='*.js' --include='*.txt' --include='*.xml' .; then
-        echo "A published file names an internal host, address or the app (see above)." >&2
-        exit 1
-      fi
-      echo "No internal host, address or app surface in the published files."
+    - sh ci/check-public-content.sh
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
