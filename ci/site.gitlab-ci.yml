@@ -1,0 +1,62 @@
+# Build, test and audit the site; publish it to gh-pages on main.
+
+.site-node:
+  image: "${KASSOVA_NODE_IMAGE}"
+  variables:
+    ASTRO_TELEMETRY_DISABLED: "1"
+    npm_config_cache: "${CI_PROJECT_DIR}/.npm"
+    npm_config_audit: "false"
+    npm_config_fund: "false"
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+  before_script:
+    - node --version
+    # Bootstrap only: the first pipeline has no lockfile yet and resolves one, kept as an artifact to commit.
+    - test -f package-lock.json || npm install --package-lock-only
+    - npm ci --prefer-offline
+
+# Type check, unit tests, build, then the site audit on the built output (scripts/audit-site.mjs):
+# the public-content rules, the SEO and structure rules, squeeze pages and the sitemap.
+site:build:
+  extends: .site-node
+  stage: preflight
+  needs: []
+  interruptible: true
+  script:
+    - test "$(cat CNAME)" = "kassova.com" && cmp CNAME public/CNAME || { echo "CNAME and public/CNAME must both be exactly kassova.com" >&2; exit 1; }
+    - npm test
+    - npm run check
+    - npm run build
+    - node scripts/audit-site.mjs dist
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - dist/
+      - package-lock.json
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Rebuild with the live intake endpoint (from intake:deploy) and fast-forward gh-pages.
+# Fails closed: a release build whose forms have no endpoint does not publish.
+pages:publish:
+  extends: .site-node
+  stage: deploy
+  resource_group: kassova-gh-pages
+  needs:
+    - job: site:build
+      artifacts: false
+    - job: intake:deploy
+      optional: true
+      artifacts: true
+  script:
+    - test -n "${KASSOVA_LEAD_ENDPOINT:-}" || { echo "KASSOVA_LEAD_ENDPOINT is not set: intake:deploy did not run, so the forms would have nowhere to post. Not publishing." >&2; exit 1; }
+    - npm run build
+    - node scripts/audit-site.mjs dist --require-endpoint
+    - sh ci/publish-gh-pages.sh dist
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $GH_PAGES_PUBLISH == "true"

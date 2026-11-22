@@ -1,0 +1,21 @@
+---
+/** The call to action every page ends with. Intake only: request a demo, join the waitlist, talk to us. */
+import { FORM_KINDS, type FormKind } from '../site';
+interface Props { heading?: string; text?: string; primary?: FormKind }
+const {
+  heading = 'See it with your own books in mind.',
+  text = 'A short call with synthetic data, shaped around the entities you keep. No commitment.',
+  primary = 'demo',
+} = Astro.props;
+const secondary: FormKind = primary === 'talk' ? 'demo' : 'talk';
+---
+<aside class="cta" aria-label="Next step">
+  <div>
+    <h2>{heading}</h2>
+    <p>{text}</p>
+  </div>
+  <div class="actions">
+    <a class="button" href={FORM_KINDS[primary].page}>{FORM_KINDS[primary].label}</a>
+    <a class="button secondary" href={FORM_KINDS[secondary].page}>{FORM_KINDS[secondary].label}</a>
+  </div>
+</aside>

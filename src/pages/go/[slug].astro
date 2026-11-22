@@ -1,0 +1,23 @@
+---
+import type { GetStaticPaths } from 'astro';
+import Squeeze from '../../layouts/Squeeze.astro';
+import LeadForm from '../../components/LeadForm.astro';
+import { SQUEEZE, type SqueezePage } from '../../data/squeeze';
+
+export const getStaticPaths = (() => SQUEEZE.map((page) => ({ params: { slug: page.slug }, props: { page } }))) satisfies GetStaticPaths;
+interface Props { page: SqueezePage }
+const { page } = Astro.props;
+---
+<Squeeze title={page.headline} description={page.lede}>
+  <div class="panel">
+    <div>
+      <p class="eyebrow">{page.eyebrow}</p>
+      <h1>{page.headline}</h1>
+      <p class="lede">{page.lede}</p>
+      <ul class="proof-list">{page.points.map((p) => <li>{p}</li>)}</ul>
+    </div>
+    <div class="form-card">
+      <LeadForm form={page.form} campaign={page.campaign} button={page.button} />
+    </div>
+  </div>
+</Squeeze>

@@ -1,0 +1,442 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "siteOrigin": {
+      "type": "String",
+      "defaultValue": "https://kassova.com",
+      "metadata": {
+        "description": "Where the browser is sent back to after a submission."
+      }
+    },
+    "dataverseUrl": {
+      "type": "String",
+      "metadata": {
+        "description": "The Dataverse environment that receives the lead, also the token audience."
+      }
+    },
+    "identityId": {
+      "type": "String",
+      "metadata": {
+        "description": "Resource id of the user-assigned managed identity that calls Dataverse."
+      }
+    },
+    "maxLeadsPerEmailPerHour": {
+      "type": "Int",
+      "defaultValue": 3
+    },
+    "maxLeadsPerHour": {
+      "type": "Int",
+      "defaultValue": 50
+    }
+  },
+  "triggers": {
+    "manual": {
+      "type": "Request",
+      "kind": "Http",
+      "inputs": {
+        "method": "POST"
+      },
+      "runtimeConfiguration": {
+        "concurrency": {
+          "runs": 5,
+          "maximumWaitingRuns": 10
+        },
+        "secureData": {
+          "properties": [
+            "inputs",
+            "outputs"
+          ]
+        }
+      }
+    }
+  },
+  "actions": {
+    "Size_ok": {
+      "type": "If",
+      "runAfter": {},
+      "expression": {
+        "and": [
+          {
+            "equals": [
+              "@startsWith(toLower(string(coalesce(triggerOutputs()?['headers']?['Content-Type'], ''))), 'application/x-www-form-urlencoded')",
+              true
+            ]
+          },
+          {
+            "greater": [
+              "@length(string(coalesce(triggerBody()?['$content'], '')))",
+              0
+            ]
+          },
+          {
+            "lessOrEquals": [
+              "@length(string(coalesce(triggerBody()?['$content'], '')))",
+              16384
+            ]
+          }
+        ]
+      },
+      "actions": {
+        "Parse": {
+          "type": "Compose",
+          "runAfter": {},
+          "inputs": "@json(concat('{\"', replace(replace(base64ToString(triggerBody()?['$content']), '&', '\",\"'), '=', '\":\"'), '\"}'))",
+          "runtimeConfiguration": {
+            "secureData": {
+              "properties": [
+                "inputs",
+                "outputs"
+              ]
+            }
+          }
+        },
+        "Fields": {
+          "type": "Compose",
+          "runAfter": {
+            "Parse": [
+              "Succeeded"
+            ]
+          },
+          "inputs": {
+            "form": "@{trim(decodeUriComponent(replace(coalesce(outputs('Parse')?['form'], ''), '+', ' ')))}",
+            "given_name": "@{trim(decodeUriComponent(replace(coalesce(outputs('Parse')?['given_name'], ''), '+', ' ')))}",
+            "family_name": "@{trim(decodeUriComponent(replace(coalesce(outputs('Parse')?['family_name'], ''), '+', ' ')))}",
+            "email": "@{trim(decodeUriComponent(replace(coalesce(outputs('Parse')?['email'], ''), '+', ' ')))}",
+            "company": "@{trim(decodeUriComponent(replace(coalesce(outputs('Parse')?['company'], ''), '+', ' ')))}",
+            "role": "@{trim(decodeUriComponent(replace(coalesce(outputs('Parse')?['role'], ''), '+', ' ')))}",
+            "entities": "@{trim(decodeUriComponent(replace(coalesce(outputs('Parse')?['entities'], ''), '+', ' ')))}",
+            "message": "@{trim(decodeUriComponent(replace(coalesce(outputs('Parse')?['message'], ''), '+', ' ')))}",
+            "consent": "@{trim(decodeUriComponent(replace(coalesce(outputs('Parse')?['consent'], ''), '+', ' ')))}",
+            "source": "@{trim(decodeUriComponent(replace(coalesce(outputs('Parse')?['source'], ''), '+', ' ')))}",
+            "campaign": "@{trim(decodeUriComponent(replace(coalesce(outputs('Parse')?['campaign'], ''), '+', ' ')))}",
+            "website": "@{trim(decodeUriComponent(replace(coalesce(outputs('Parse')?['website'], ''), '+', ' ')))}"
+          },
+          "runtimeConfiguration": {
+            "secureData": {
+              "properties": [
+                "inputs",
+                "outputs"
+              ]
+            }
+          }
+        },
+        "Honeypot_empty": {
+          "type": "If",
+          "runAfter": {
+            "Fields": [
+              "Succeeded"
+            ]
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@outputs('Fields')?['website']",
+                  ""
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Valid": {
+              "type": "Compose",
+              "runAfter": {},
+              "inputs": "@and(contains(createArray('demo', 'waitlist', 'talk'), outputs('Fields')?['form']), and(greaterOrEquals(length(outputs('Fields')?['given_name']), 1), lessOrEquals(length(outputs('Fields')?['given_name']), 100)), and(greaterOrEquals(length(outputs('Fields')?['family_name']), 1), lessOrEquals(length(outputs('Fields')?['family_name']), 100)), greaterOrEquals(length(outputs('Fields')?['email']), 6), lessOrEquals(length(outputs('Fields')?['email']), 254), greater(indexOf(outputs('Fields')?['email'], '@'), 0), equals(indexOf(outputs('Fields')?['email'], '@'), lastIndexOf(outputs('Fields')?['email'], '@')), greater(lastIndexOf(outputs('Fields')?['email'], '.'), add(indexOf(outputs('Fields')?['email'], '@'), 1)), less(lastIndexOf(outputs('Fields')?['email'], '.'), sub(length(outputs('Fields')?['email']), 2)), not(contains(outputs('Fields')?['email'], ' ')), and(greaterOrEquals(length(outputs('Fields')?['company']), 0), lessOrEquals(length(outputs('Fields')?['company']), 160)), and(greaterOrEquals(length(outputs('Fields')?['role']), 0), lessOrEquals(length(outputs('Fields')?['role']), 100)), contains(createArray('', '1-5', '6-20', '21-50', '51+'), outputs('Fields')?['entities']), and(greaterOrEquals(length(outputs('Fields')?['message']), 0), lessOrEquals(length(outputs('Fields')?['message']), 2000)), equals(outputs('Fields')?['consent'], 'yes'), startsWith(outputs('Fields')?['source'], '/'), and(greaterOrEquals(length(outputs('Fields')?['source']), 1), lessOrEquals(length(outputs('Fields')?['source']), 300)), not(contains(outputs('Fields')?['source'], '//')), and(greaterOrEquals(length(outputs('Fields')?['campaign']), 1), lessOrEquals(length(outputs('Fields')?['campaign']), 100)))",
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs",
+                    "outputs"
+                  ]
+                }
+              }
+            },
+            "Is_valid": {
+              "type": "If",
+              "runAfter": {
+                "Valid": [
+                  "Succeeded"
+                ]
+              },
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@outputs('Valid')",
+                      true
+                    ]
+                  }
+                ]
+              },
+              "actions": {
+                "Recent_overall": {
+                  "type": "Http",
+                  "runAfter": {},
+                  "inputs": {
+                    "method": "GET",
+                    "uri": "@{parameters('dataverseUrl')}/api/data/v9.2/leads?$select=leadid&$top=@{parameters('maxLeadsPerHour')}&$filter=@{encodeUriComponent(concat('kas_form ne null and createdon ge ', formatDateTime(addHours(utcNow(), -1), 'yyyy-MM-ddTHH:mm:ssZ')))}",
+                    "headers": {
+                      "Accept": "application/json",
+                      "OData-Version": "4.0",
+                      "OData-MaxVersion": "4.0"
+                    },
+                    "authentication": {
+                      "type": "ManagedServiceIdentity",
+                      "identity": "@parameters('identityId')",
+                      "audience": "@parameters('dataverseUrl')"
+                    }
+                  },
+                  "runtimeConfiguration": {
+                    "secureData": {
+                      "properties": [
+                        "inputs",
+                        "outputs"
+                      ]
+                    }
+                  }
+                },
+                "Recent_from_email": {
+                  "type": "Http",
+                  "runAfter": {},
+                  "inputs": {
+                    "method": "GET",
+                    "uri": "@{parameters('dataverseUrl')}/api/data/v9.2/leads?$select=leadid&$top=@{parameters('maxLeadsPerEmailPerHour')}&$filter=@{encodeUriComponent(concat('emailaddress1 eq ''', replace(outputs('Fields')?['email'], '''', ''''''), ''' and createdon ge ', formatDateTime(addHours(utcNow(), -1), 'yyyy-MM-ddTHH:mm:ssZ')))}",
+                    "headers": {
+                      "Accept": "application/json",
+                      "OData-Version": "4.0",
+                      "OData-MaxVersion": "4.0"
+                    },
+                    "authentication": {
+                      "type": "ManagedServiceIdentity",
+                      "identity": "@parameters('identityId')",
+                      "audience": "@parameters('dataverseUrl')"
+                    }
+                  },
+                  "runtimeConfiguration": {
+                    "secureData": {
+                      "properties": [
+                        "inputs",
+                        "outputs"
+                      ]
+                    }
+                  }
+                },
+                "Under_hourly_cap": {
+                  "type": "If",
+                  "runAfter": {
+                    "Recent_overall": [
+                      "Succeeded"
+                    ],
+                    "Recent_from_email": [
+                      "Succeeded"
+                    ]
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "less": [
+                          "@length(body('Recent_overall')?['value'])",
+                          "@parameters('maxLeadsPerHour')"
+                        ]
+                      }
+                    ]
+                  },
+                  "actions": {
+                    "Under_email_cap": {
+                      "type": "If",
+                      "runAfter": {},
+                      "expression": {
+                        "and": [
+                          {
+                            "less": [
+                              "@length(body('Recent_from_email')?['value'])",
+                              "@parameters('maxLeadsPerEmailPerHour')"
+                            ]
+                          }
+                        ]
+                      },
+                      "actions": {
+                        "Create_lead": {
+                          "type": "Http",
+                          "runAfter": {},
+                          "inputs": {
+                            "method": "POST",
+                            "uri": "@{parameters('dataverseUrl')}/api/data/v9.2/leads",
+                            "headers": {
+                              "Accept": "application/json",
+                              "OData-Version": "4.0",
+                              "OData-MaxVersion": "4.0",
+                              "Content-Type": "application/json; charset=utf-8"
+                            },
+                            "body": {
+                              "subject": "@{concat('kassova.com ', outputs('Fields')?['form'], ' request')}",
+                              "firstname": "@{outputs('Fields')?['given_name']}",
+                              "lastname": "@{outputs('Fields')?['family_name']}",
+                              "emailaddress1": "@{outputs('Fields')?['email']}",
+                              "companyname": "@{outputs('Fields')?['company']}",
+                              "jobtitle": "@{outputs('Fields')?['role']}",
+                              "description": "@{concat('Entities: ', if(empty(outputs('Fields')?['entities']), 'not given', outputs('Fields')?['entities']), decodeUriComponent('%0A'), decodeUriComponent('%0A'), outputs('Fields')?['message'])}",
+                              "leadsourcecode": 8,
+                              "kas_form": "@{outputs('Fields')?['form']}",
+                              "kas_sourcepage": "@{outputs('Fields')?['source']}",
+                              "kas_campaign": "@{outputs('Fields')?['campaign']}",
+                              "kas_intakeid": "@{workflow()?['run']?['name']}"
+                            },
+                            "authentication": {
+                              "type": "ManagedServiceIdentity",
+                              "identity": "@parameters('identityId')",
+                              "audience": "@parameters('dataverseUrl')"
+                            }
+                          },
+                          "runtimeConfiguration": {
+                            "secureData": {
+                              "properties": [
+                                "inputs",
+                                "outputs"
+                              ]
+                            }
+                          }
+                        },
+                        "Respond_thanks": {
+                          "type": "Response",
+                          "kind": "Http",
+                          "inputs": {
+                            "statusCode": 303,
+                            "headers": {
+                              "Location": "@{parameters('siteOrigin')}/thanks/?form=@{outputs('Fields')?['form']}",
+                              "Cache-Control": "no-store"
+                            }
+                          },
+                          "runAfter": {
+                            "Create_lead": [
+                              "Succeeded"
+                            ]
+                          }
+                        }
+                      },
+                      "else": {
+                        "actions": {
+                          "Respond_repeat": {
+                            "type": "Response",
+                            "kind": "Http",
+                            "inputs": {
+                              "statusCode": 303,
+                              "headers": {
+                                "Location": "@{parameters('siteOrigin')}/thanks/?form=@{outputs('Fields')?['form']}",
+                                "Cache-Control": "no-store"
+                              }
+                            },
+                            "runAfter": {}
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "else": {
+                    "actions": {
+                      "Respond_busy": {
+                        "type": "Response",
+                        "kind": "Http",
+                        "inputs": {
+                          "statusCode": 303,
+                          "headers": {
+                            "Location": "@{parameters('siteOrigin')}/intake-error/?reason=busy",
+                            "Cache-Control": "no-store"
+                          }
+                        },
+                        "runAfter": {}
+                      }
+                    }
+                  }
+                }
+              },
+              "else": {
+                "actions": {
+                  "Respond_invalid": {
+                    "type": "Response",
+                    "kind": "Http",
+                    "inputs": {
+                      "statusCode": 303,
+                      "headers": {
+                        "Location": "@{parameters('siteOrigin')}/intake-error/?reason=invalid",
+                        "Cache-Control": "no-store"
+                      }
+                    },
+                    "runAfter": {}
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "actions": {
+              "Respond_trap": {
+                "type": "Response",
+                "kind": "Http",
+                "inputs": {
+                  "statusCode": 303,
+                  "headers": {
+                    "Location": "@{parameters('siteOrigin')}/thanks/",
+                    "Cache-Control": "no-store"
+                  }
+                },
+                "runAfter": {}
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "actions": {
+          "Respond_malformed": {
+            "type": "Response",
+            "kind": "Http",
+            "inputs": {
+              "statusCode": 303,
+              "headers": {
+                "Location": "@{parameters('siteOrigin')}/intake-error/?reason=invalid",
+                "Cache-Control": "no-store"
+              }
+            },
+            "runAfter": {}
+          }
+        }
+      }
+    },
+    "Respond_unavailable": {
+      "type": "Response",
+      "kind": "Http",
+      "inputs": {
+        "statusCode": 303,
+        "headers": {
+          "Location": "@{parameters('siteOrigin')}/intake-error/?reason=unavailable",
+          "Cache-Control": "no-store"
+        }
+      },
+      "runAfter": {
+        "Size_ok": [
+          "Failed",
+          "TimedOut"
+        ]
+      }
+    },
+    "Fail_run": {
+      "type": "Terminate",
+      "runAfter": {
+        "Respond_unavailable": [
+          "Succeeded",
+          "Failed"
+        ]
+      },
+      "inputs": {
+        "runStatus": "Failed",
+        "runError": {
+          "code": "IntakeUnavailable",
+          "message": "The lead could not be stored; the visitor was sent to /intake-error/."
+        }
+      }
+    }
+  },
+  "outputs": {}
+}

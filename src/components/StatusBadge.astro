@@ -1,0 +1,7 @@
+---
+import type { Status } from '../site';
+interface Props { status: Status }
+const { status } = Astro.props;
+const cls = 'status status-' + status.toLowerCase().replace(/[^a-z]+/g, '-').replace(/-$/, '');
+---
+<span class={cls}>{status}</span>

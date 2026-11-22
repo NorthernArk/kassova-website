@@ -1,0 +1,59 @@
+---
+/**
+ * The one lead form. A plain HTML form that posts to the Azure Logic App (infra/lead-intake), which validates it,
+ * creates the lead in D365 and answers with a 303 back to /thanks/ or /intake-error/. No script, no third party.
+ *
+ * Field names and limits are a contract with infra/lead-intake/workflow.json; tests/intake-contract.test.mjs checks both.
+ */
+import { KASSOVA_LEAD_ENDPOINT } from 'astro:env/server';
+import { FORM_KINDS, type FormKind } from '../site';
+
+interface Props {
+  form: FormKind;
+  campaign: string;
+  button?: string;
+  id?: string;
+  showMessage?: boolean;
+}
+const { form, campaign, button, id = 'lead-form', showMessage = form === 'talk' } = Astro.props;
+const endpoint = KASSOVA_LEAD_ENDPOINT ?? '';
+const live = endpoint.startsWith('https://');
+const source = Astro.url.pathname;
+const label = button ?? FORM_KINDS[form].button;
+---
+<form class="lead-form" id={id} method="post" action={live ? endpoint : undefined} accept-charset="utf-8" aria-describedby={`${id}-note`}>
+  {!live && <p class="form-off" role="status">This preview build has no intake endpoint, so the form cannot be sent from here.</p>}
+  <fieldset disabled={!live}>
+    <legend class="trap">Your details</legend>
+    <input type="hidden" name="form" value={form} />
+    <input type="hidden" name="source" value={source} />
+    <input type="hidden" name="campaign" value={campaign} />
+    <div class="pair">
+      <label>First name<input name="given_name" autocomplete="given-name" required maxlength="100" /></label>
+      <label>Last name<input name="family_name" autocomplete="family-name" required maxlength="100" /></label>
+    </div>
+    <label>Work email<input name="email" type="email" autocomplete="email" required maxlength="254" /></label>
+    <div class="pair">
+      <label>Firm or office <span class="optional">(optional)</span><input name="company" autocomplete="organization" maxlength="160" /></label>
+      <label>Your role <span class="optional">(optional)</span><input name="role" autocomplete="organization-title" maxlength="100" /></label>
+    </div>
+    <label>Entities you keep books for <span class="optional">(optional)</span>
+      <select name="entities">
+        <option value="">Choose one</option>
+        <option value="1-5">1 to 5</option>
+        <option value="6-20">6 to 20</option>
+        <option value="21-50">21 to 50</option>
+        <option value="51+">More than 50</option>
+      </select>
+    </label>
+    {showMessage
+      ? <label>What would you like to talk about?<textarea name="message" maxlength="2000"></textarea></label>
+      : <label>Anything we should know? <span class="optional">(optional)</span><textarea name="message" maxlength="2000"></textarea></label>}
+    <div class="trap" aria-hidden="true">
+      <label>Leave this field empty<input name="website" tabindex="-1" autocomplete="off" /></label>
+    </div>
+    <label class="consent"><input type="checkbox" name="consent" value="yes" required /><span>Kassova may contact me about this request. See the <a href="/privacy/">privacy notice</a>.</span></label>
+    <div><button class="button" type="submit">{label}</button></div>
+  </fieldset>
+  <p class="note" id={`${id}-note`}>A person reads every request. We never sell or share your details, and you will not be added to a mailing list.</p>
+</form>

@@ -1,0 +1,79 @@
+---
+import Base from '../layouts/Base.astro';
+import Cta from '../components/Cta.astro';
+import StatusBadge from '../components/StatusBadge.astro';
+import { FEATURES } from '../data/features';
+import { SITE, absolute } from '../site';
+import { getCollection } from 'astro:content';
+
+const latest = (await getCollection('articles')).sort((a, b) => b.data.published.getTime() - a.data.published.getTime()).slice(0, 3);
+const jsonLd = [
+  { '@context': 'https://schema.org', '@type': 'Organization', name: SITE.name, url: SITE.origin, logo: absolute('/favicon.svg'), slogan: SITE.tagline },
+  { '@context': 'https://schema.org', '@type': 'WebSite', name: SITE.name, url: SITE.origin, description: SITE.description },
+  {
+    '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: SITE.name, applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Web', description: SITE.description, url: SITE.origin,
+  },
+];
+const proof = [
+  { claim: 'Each client is walled off by the database itself.', status: 'Built' as const },
+  { claim: 'Amounts are exact decimals with one rounding rule, checked to the cent.', status: 'Built' as const },
+  { claim: 'Imported statements are fingerprinted, so nothing is counted twice.', status: 'Built' as const },
+  { claim: 'The close runs on a board, and owner decisions arrive as cards.', status: 'Built' as const },
+  { claim: 'Bank feeds per client, connected by the client.', status: 'Built, not yet live' as const },
+  { claim: 'A compliance calendar per entity.', status: 'Planned' as const },
+];
+---
+<Base title={SITE.name} description={SITE.description} jsonLd={jsonLd}>
+  <section class="hero shell">
+    <p class="eyebrow">{SITE.descriptor}</p>
+    <h1>{SITE.tagline}</h1>
+    <p class="lede">Kassova is the workspace for the people who keep the books of family offices and multi-entity groups: an exact ledger across the structures you keep, the monthly close on one board, and every client behind its own wall.</p>
+    <div class="actions">
+      <a class="button" href="/demo/">Request a demo</a>
+      <a class="button secondary" href="/features/">See the features</a>
+    </div>
+  </section>
+
+  <section class="section shell" aria-labelledby="who">
+    <h2 id="who">Built for whoever answers for the numbers</h2>
+    <ul class="grid">
+      <li class="card"><h3>Family-office teams</h3><p>Trusts, holding companies, rentals and private interests, rolled up by who owns what.</p></li>
+      <li class="card"><h3>Controllers with many clients</h3><p>Each client separate by design, one close board across all of them.</p></li>
+      <li class="card"><h3>Multi-entity finance teams</h3><p>Intercompany, entity-level books and a consolidated view that ties out.</p></li>
+    </ul>
+  </section>
+
+  <section class="dark" aria-labelledby="proof">
+    <div class="shell">
+      <p class="eyebrow">What is real today</p>
+      <h2 id="proof">Every figure shows its work.</h2>
+      <p class="lede">We separate built from planned, aloud. Here is where each claim stands.</p>
+      <ul class="proof-list">
+        {proof.map((p) => <li>{p.claim} <StatusBadge status={p.status} /></li>)}
+      </ul>
+    </div>
+  </section>
+
+  <section class="section shell" aria-labelledby="features">
+    <h2 id="features">What Kassova does</h2>
+    <ul class="grid">
+      {FEATURES.map((f) => (
+        <li class="card"><h3><a href={`/features/${f.slug}/`}>{f.title}</a></h3><p>{f.summary}</p></li>
+      ))}
+    </ul>
+  </section>
+
+  {latest.length > 0 && (
+    <section class="section shell" aria-labelledby="insights">
+      <h2 id="insights">From the insights desk</h2>
+      <ul class="grid">
+        {latest.map((a) => (
+          <li class="card"><h3><a href={`/insights/${a.id}/`}>{a.data.title}</a></h3><p>{a.data.description}</p></li>
+        ))}
+      </ul>
+    </section>
+  )}
+
+  <div class="shell"><Cta /></div>
+</Base>

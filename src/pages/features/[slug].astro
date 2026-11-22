@@ -1,0 +1,61 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { getCollection } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import Cta from '../../components/Cta.astro';
+import StatusBadge from '../../components/StatusBadge.astro';
+import { FEATURES, type Feature } from '../../data/features';
+import { absolute } from '../../site';
+
+export const getStaticPaths = (() => FEATURES.map((feature) => ({ params: { slug: feature.slug }, props: { feature } }))) satisfies GetStaticPaths;
+interface Props { feature: Feature }
+const { feature } = Astro.props;
+const related = (await getCollection('articles')).filter((a) => a.data.feature === feature.slug);
+const jsonLd = [
+  {
+    '@context': 'https://schema.org', '@type': 'WebPage', name: `${feature.title} | Kassova`, description: feature.summary,
+    url: absolute(`/features/${feature.slug}/`),
+  },
+  {
+    '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Features', item: absolute('/features/') },
+      { '@type': 'ListItem', position: 2, name: feature.title, item: absolute(`/features/${feature.slug}/`) },
+    ],
+  },
+];
+---
+<Base title={feature.title} description={feature.summary} jsonLd={jsonLd}>
+  <nav class="shell breadcrumb" aria-label="Breadcrumb"><a href="/features/">Features</a> / {feature.title}</nav>
+  <section class="hero shell">
+    <p class="eyebrow">Feature</p>
+    <h1>{feature.title}</h1>
+    <p class="lede">{feature.summary}</p>
+  </section>
+  <section class="shell prose" aria-labelledby="problem">
+    <h2 id="problem">The problem</h2>
+    <p>{feature.problem}</p>
+  </section>
+  <section class="section shell" aria-labelledby="caps">
+    <h2 id="caps">What it does, and where each part stands</h2>
+    <ul class="capabilities">
+      {feature.capabilities.map((c) => (
+        <li><div class="row"><h3>{c.name}</h3><StatusBadge status={c.status} /></div><p class="muted">{c.detail}</p></li>
+      ))}
+    </ul>
+  </section>
+  <section class="dark" aria-labelledby="proof">
+    <div class="shell">
+      <p class="eyebrow">Proof</p>
+      <h2 id="proof">{feature.proof}</h2>
+    </div>
+  </section>
+  {related.length > 0 && (
+    <section class="section shell" aria-labelledby="reading">
+      <h2 id="reading">Further reading</h2>
+      <ul class="grid">
+        {related.map((a) => <li class="card"><h3><a href={`/insights/${a.id}/`}>{a.data.title}</a></h3><p>{a.data.description}</p></li>)}
+      </ul>
+    </section>
+  )}
+  <div class="shell"><Cta heading={`See ${feature.title.toLowerCase()} with synthetic data.`} /></div>
+</Base>
